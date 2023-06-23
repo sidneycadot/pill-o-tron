@@ -1,6 +1,19 @@
 #! /usr/bin/env python3
 
-"""Calculate optimal periodic pill dosage schedules."""
+"""The Pill-O-Tron calculate optimal periodic pill dosage schedules.
+
+Given a set of allowable daily doses, and a maximum period for a dosage schedule, find optimal dosage schedules
+to reach all possible mean dosage values.
+
+For many mean values, multiple dosage schedules are possible. We prune them by applying the following rules:
+
+(1) Dosage schedules with lower standard deviation are preferred; so we reject all dosage schedules where a
+    schedule with the same mean but higher standard deviation exists.
+
+(2) For dosage schedules with the same mean and standard deviation, we prefer ones that are shorter (lower period).
+
+For a given mean, the lowest standard-deviation schedule, with the shortest period, isa considered "optimal".
+"""
 
 import argparse
 from fractions import Fraction
@@ -28,41 +41,51 @@ def generate_partitions(num_stacks: int, total: int) -> list[tuple[int]]:
     for last_stack in range(0, total + 1):
         stacks_before_solutions = generate_partitions(num_stacks - 1, total - last_stack)
         solutions.extend(stacks_before_solution + (last_stack, ) for stacks_before_solution in stacks_before_solutions)
+
     return solutions
 
 
 def fraction_to_dosage_string(dosage: Fraction) -> str:
     """Represent a fraction as a dosage string."""
-    if dosage.denominator == 1:
-        if 0 <= dosage.numerator <= 9:
-            return str(dosage.numerator)
+    if dosage.denominator == 1 and 0 <= dosage.numerator <= 9:
+        # Represent single-digit integer doses by just the integer.
+        return str(dosage.numerator)
     elif dosage == Fraction(1, 2):
+        # Dutch: "half".
         return "h"
     elif dosage == Fraction(1, 4):
+        # Dutch: "kwart".
         return "k"
     elif dosage == Fraction(3, 2):
+        # Dutch: "anderhalf"
         return "a"
-
-    raise ValueError("Unable to make daily dosage string for fraction {}".format(dosage))
+    else:
+        # All other dosages are printed inside parentheses.
+        return "({})".format(dosage)
 
 
 class DosageSchedule(NamedTuple):
-    """Represents a dosage schedule."""
+    """A dosage schedule."""
+
     possible_dosages: list[Fraction]
     counts: tuple[int]
 
     def period(self) -> int:
+        """Return the period, in days."""
         return sum(self.counts)
 
     def mean(self) -> Fraction:
+        """Return the mean daily dose, in doses/day."""
         return float(sum(dosage * count for (dosage, count) in zip(self.possible_dosages, self.counts)) / self.period())
 
     def stddev(self):
+        """Return the standard deviation of the daily dose, in doses/day."""
         mean = self.mean()
         variance = sum((dosage - mean) ** 2 * count for (dosage, count) in zip(self.possible_dosages, self.counts)) / self.period()
         return math.sqrt(variance)
 
     def schedule_string(self) -> str:
+        """Return the dosage schedule as a string."""
         specs = []
         for (dosage, count) in zip(self.possible_dosages, self.counts):
             if count != 0:
@@ -72,7 +95,7 @@ class DosageSchedule(NamedTuple):
 
 
 def show_optimal_schedules_plot(optimal_schedules):
-    """Show an optimal schedules plot."""
+    """Show a plot of all optimal schedules."""
     import matplotlib.pyplot as plt
     mean = [schedule.mean() for schedule in optimal_schedules]
     stddev = [schedule.stddev() for schedule in optimal_schedules]
@@ -91,7 +114,7 @@ def show_optimal_schedules_plot(optimal_schedules):
 
 
 def main():
-    """Main program."""
+    """Main program for the pill-o-tron tool."""
 
     default_possible_daily_dosages="0,0.5,1,2"
     default_max_period = 21
@@ -108,11 +131,12 @@ def main():
 
     possible_dosages_as_floats = [float(dosage) for dosage in args.possible_daily_dosages.split(",")]
 
-    possible_dosages = sorted(set(Fraction(round(pills * 4), 4) for pills in possible_dosages_as_floats))
+    possible_dosages = sorted(set(Fraction(round(dosage * 4), 4) for dosage in possible_dosages_as_floats))
 
-    print("# Pill-O-Tron 1.0.1 - Copyright (c) 2023 by Sidney Cadot.")
+    print("# Pill-O-Tron 1.0.2 - Copyright (c) 2023 by Sidney Cadot.")
     print("#")
     print("# Parameters:")
+    print("#")
     print("#   --possible-daily-dosages: {}".format(",".join(str(x) for x in possible_dosages_as_floats)))
     print("#   --max-period: {}".format(args.max_period))
     print("#")
@@ -126,9 +150,11 @@ def main():
         partitions = generate_partitions(len(possible_dosages), period)
         schedules.extend(DosageSchedule(possible_dosages, partition) for partition in partitions)
 
-    print("# {} possible dosage schedules found.".format(len(schedules)))
+    print("# Possible dosage schedules found: {}.".format(len(schedules)))
 
     # Order schedules by mean.
+
+    print("# Finding reachable mean daily dosages ...")
 
     schedules_by_mean = {}
 
@@ -140,18 +166,20 @@ def main():
         else:
             schedules_by_mean[mean] = [schedule]
 
+    print("# Reachable mean daily dosages found: {}.".format(len(schedules_by_mean)))
+
+    means_reachable = sorted(schedules_by_mean)
+
     # Find optimal schedules for each mean, by rejecting non-optimal ones.
 
     print("# Rejecting non-optimal dosage schedules ...")
-
-    means_reachable = sorted(schedules_by_mean)
 
     optimal_schedules = []
     for mean in means_reachable:
         schedules = schedules_by_mean[mean]
 
         # Lower standard deviation is more important than lower period, so we select for lowest standard deviation first.
-        min_stddev =min(schedule.stddev() for schedule in schedules)
+        min_stddev = min(schedule.stddev() for schedule in schedules)
         schedules = [schedule for schedule in schedules if schedule.stddev() == min_stddev]
 
         # For schedules with the same mean and stddev, reject ones that are longer than necessary.
@@ -165,7 +193,7 @@ def main():
         schedule = schedules[0]
         optimal_schedules.append(schedule)
 
-    print("# {} optimal dosage schedules found.".format(len(optimal_schedules)))
+    print("# Done. Report for {} optimal dosage schedules follows:".format(len(optimal_schedules)))
     print()
 
     # Print optimal schedules.
