@@ -1,6 +1,6 @@
 #! /usr/bin/env python3
 
-"""The Pill-O-Tron calculate optimal periodic pill dosage schedules.
+"""The Pill-O-Tron tool calculates optimal periodic pill dosage schedules.
 
 Given a set of allowable daily doses, and a maximum period for a dosage schedule, find optimal dosage schedules
 to reach all possible mean dosage values.
@@ -64,6 +64,9 @@ def fraction_to_dosage_string(dosage: Fraction) -> str:
         return "({})".format(dosage)
 
 
+def possible_dosages_to_string(possible_dosages: list[Fraction]) -> str:
+    return ",".join(str(float(dosage)) for dosage in possible_dosages)
+
 class DosageSchedule(NamedTuple):
     """A dosage schedule."""
 
@@ -74,17 +77,17 @@ class DosageSchedule(NamedTuple):
         """Return the period, in days."""
         return sum(self.counts)
 
-    def mean(self) -> Fraction:
+    def mean(self) -> float:
         """Return the mean daily dose, in doses/day."""
         return float(sum(dosage * count for (dosage, count) in zip(self.possible_dosages, self.counts)) / self.period())
 
-    def stddev(self):
+    def stddev(self) -> float:
         """Return the standard deviation of the daily dose, in doses/day."""
         mean = self.mean()
         variance = sum((dosage - mean) ** 2 * count for (dosage, count) in zip(self.possible_dosages, self.counts)) / self.period()
         return math.sqrt(variance)
 
-    def schedule_string(self) -> str:
+    def schedule_as_string(self) -> str:
         """Return the dosage schedule as a string."""
         specs = []
         for (dosage, count) in zip(self.possible_dosages, self.counts):
@@ -94,7 +97,7 @@ class DosageSchedule(NamedTuple):
         return "".join(specs)
 
 
-def show_optimal_schedules_plot(optimal_schedules):
+def show_optimal_schedules_plot(possible_dosages: list[Fraction], max_period: int, optimal_schedules: list[DosageSchedule]) -> None:
     """Show a plot of all optimal schedules."""
     import matplotlib.pyplot as plt
     mean = [schedule.mean() for schedule in optimal_schedules]
@@ -102,11 +105,12 @@ def show_optimal_schedules_plot(optimal_schedules):
     period = [schedule.period() for schedule in optimal_schedules]
 
     plt.scatter(mean, stddev, c=period)
-    plt.title("{} optimal schedules\n(colors correspond to period; lower is better)".format(len(optimal_schedules)))
-    plt.xlabel("mean dosage [pills/day]")
+    plt.title("\n{} optimal schedules\npossible daily doses: {{{}}}; max period: {}\n(colors correspond to schedule period in days)\n".format(len(optimal_schedules), possible_dosages_to_string(possible_dosages), max_period))
+    plt.xlabel("mean dose [pills/day]")
     plt.ylabel("standard deviation [pills/day]")
     cbar = plt.colorbar()
     plt.grid()
+    plt.gcf().set_size_inches(12, 8)
 
     cbar.ax.yaxis.get_major_locator().set_params(integer=True)
 
@@ -114,12 +118,12 @@ def show_optimal_schedules_plot(optimal_schedules):
 
 
 def main():
-    """Main program for the pill-o-tron tool."""
+    """Main program for the Pill-O-Tron tool."""
 
     default_possible_daily_dosages="0,0.5,1,2"
     default_max_period = 21
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="The Pill-O-Tron tool calculates optimal periodic pill dosage schedules.")
 
     parser.add_argument("--possible-daily-dosages", "-d", default=default_possible_daily_dosages,
         help="possible daily dosages, in pills, separated by comma (default: {})".format(default_possible_daily_dosages))
@@ -133,11 +137,11 @@ def main():
 
     possible_dosages = sorted(set(Fraction(round(dosage * 4), 4) for dosage in possible_dosages_as_floats))
 
-    print("# Pill-O-Tron 1.0.2 - Copyright (c) 2023 by Sidney Cadot.")
+    print("# Pill-O-Tron 1.0.3 - Copyright (c) 2023 by Sidney Cadot.")
     print("#")
     print("# Parameters:")
     print("#")
-    print("#   --possible-daily-dosages: {}".format(",".join(str(x) for x in possible_dosages_as_floats)))
+    print("#   --possible-daily-dosages:", possible_dosages_to_string(possible_dosages))
     print("#   --max-period: {}".format(args.max_period))
     print("#")
 
@@ -204,11 +208,11 @@ def main():
             schedule.mean(),
             schedule.stddev(),
             schedule.period(),
-            schedule.schedule_string()
+            schedule.schedule_as_string()
         ))
 
     if args.show_plot:
-        show_optimal_schedules_plot(optimal_schedules)
+        show_optimal_schedules_plot(possible_dosages, args.max_period, optimal_schedules)
 
 
 if __name__ == "__main__":
