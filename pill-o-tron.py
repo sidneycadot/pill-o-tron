@@ -2,7 +2,7 @@
 
 """The Pill-O-Tron tool calculates optimal periodic pill dosage schedules.
 
-Given a set of allowable daily doses, and a maximum period for a dosage schedule, find optimal dosage schedules
+Given a (small) set of allowable daily doses, and a maximum period for a dosage schedule, find optimal dosage schedules
 to reach all possible mean dosage values.
 
 For many mean values, multiple dosage schedules are possible. We prune them by applying the following rules:
@@ -12,7 +12,7 @@ For many mean values, multiple dosage schedules are possible. We prune them by a
 
 (2) For dosage schedules with the same mean and standard deviation, we prefer ones that are shorter (lower period).
 
-For a given mean, the lowest standard-deviation schedule, with the shortest period, isa considered "optimal".
+For a given mean, the lowest standard-deviation schedule, with the shortest period, is considered "optimal".
 """
 
 import argparse
@@ -105,10 +105,11 @@ def show_optimal_schedules_plot(possible_dosages: list[Fraction], max_period: in
     period = [schedule.period() for schedule in optimal_schedules]
 
     plt.scatter(mean, stddev, c=period)
-    plt.title("\n{} optimal schedules\npossible daily doses: {{{}}}; max period: {}\n(colors correspond to schedule period in days)\n".format(len(optimal_schedules), possible_dosages_to_string(possible_dosages), max_period))
+    plt.title("\n{} schedules with different mean doses\npossible daily doses: {{{}}}; max period: {}\n(colors correspond to schedule period in days)\n".format(len(optimal_schedules), possible_dosages_to_string(possible_dosages), max_period))
     plt.xlabel("mean dose [pills/day]")
     plt.ylabel("standard deviation [pills/day]")
     cbar = plt.colorbar()
+
     plt.grid()
     plt.gcf().set_size_inches(12, 8)
 
