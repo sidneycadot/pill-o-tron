@@ -9,12 +9,12 @@ import math
 
 
 def generate_partitions(num_stacks: int, total: int) -> list[tuple[int]]:
-    """Generate partitions.
+    """Generate integer partitions of 'total' into 'num_stacks'.
 
     This returns a list of tuples.
     Each tuple contains "num_stacks" elements.
     Each tuple element is a non-negative integer.
-    The sum of each tople is "total".
+    The sum of each tuple is "total".
     """
 
     if num_stacks == 0:
@@ -47,6 +47,7 @@ def fraction_to_dosage_string(dosage: Fraction) -> str:
 
 
 class DosageSchedule(NamedTuple):
+    """Represents a dosage schedule."""
     possible_dosages: list[Fraction]
     counts: tuple[int]
 
@@ -71,25 +72,36 @@ class DosageSchedule(NamedTuple):
 
 
 def show_optimal_schedules_plot(optimal_schedules):
+    """Show an optimal schedules plot."""
     import matplotlib.pyplot as plt
     mean = [schedule.mean() for schedule in optimal_schedules]
     stddev = [schedule.stddev() for schedule in optimal_schedules]
     period = [schedule.period() for schedule in optimal_schedules]
-    plt.title("{} optimal schedules\n(colors correspond to period)".format(len(optimal_schedules)))
+
     plt.scatter(mean, stddev, c=period)
-    plt.xlabel("mean")
-    plt.ylabel("stddev")
-    plt.colorbar()
+    plt.title("{} optimal schedules\n(colors correspond to period; lower is better)".format(len(optimal_schedules)))
+    plt.xlabel("mean dosage [pills/day]")
+    plt.ylabel("standard deviation [pills/day]")
+    cbar = plt.colorbar()
     plt.grid()
+
+    cbar.ax.yaxis.get_major_locator().set_params(integer=True)
+
     plt.show()
 
 
 def main():
+    """Main program."""
+
+    default_possible_daily_dosages="0,0.5,1,2"
+    default_max_period = 21
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--possible_daily_dosages", "-d", default="0,0.5,1,2", help="possible daily dosages, in pills, separated by comma")
-    parser.add_argument("--max-period","-p",  type=int, default="21", help="max period, in days")
+    parser.add_argument("--possible-daily-dosages", "-d", default=default_possible_daily_dosages,
+        help="possible daily dosages, in pills, separated by comma (default: {})".format(default_possible_daily_dosages))
+    parser.add_argument("--max-period","-p",  type=int, default=default_max_period,
+        help="max period, in days (default: {})".format(default_max_period))
     parser.add_argument("--show-plot", "-s", action="store_true", help="show optimal schedules plot")
 
     args = parser.parse_args()
@@ -98,16 +110,23 @@ def main():
 
     possible_dosages = sorted(set(Fraction(round(pills * 4), 4) for pills in possible_dosages_as_floats))
 
+    print("# Pill-O-Tron 1.0.1 - Copyright (c) 2023 by Sidney Cadot.")
+    print("#")
+    print("# Parameters:")
+    print("#   --possible-daily-dosages: {}".format(",".join(str(x) for x in possible_dosages_as_floats)))
+    print("#   --max-period: {}".format(args.max_period))
+    print("#")
+
     # Enumerate all dosage schedules.
 
-    print("Enumerating all dosage schedules ...")
+    print("# Enumerating all dosage schedules ...")
 
     schedules = []
     for period in range(1, args.max_period + 1):
         partitions = generate_partitions(len(possible_dosages), period)
         schedules.extend(DosageSchedule(possible_dosages, partition) for partition in partitions)
 
-    print("{} dosage schedules found.".format(len(schedules)))
+    print("# {} possible dosage schedules found.".format(len(schedules)))
 
     # Order schedules by mean.
 
@@ -123,7 +142,7 @@ def main():
 
     # Find optimal schedules for each mean, by rejecting non-optimal ones.
 
-    print("Rejecting non-optimal schedules ...")
+    print("# Rejecting non-optimal dosage schedules ...")
 
     means_reachable = sorted(schedules_by_mean)
 
@@ -141,14 +160,15 @@ def main():
 
         if len(schedules) != 1:
             print(schedules)
-            raise RuntimeError("Found multiple schedules with the same stdandard deviation and period.")
+            raise RuntimeError("Found multiple dosage schedules with the same stdandard deviation and period.")
 
         schedule = schedules[0]
         optimal_schedules.append(schedule)
 
-    print("{} optimal dosage schedules found.".format(len(optimal_schedules)))
+    print("# {} optimal dosage schedules found.".format(len(optimal_schedules)))
+    print()
 
-    # Present optimal solutions.
+    # Print optimal schedules.
 
     for schedule in optimal_schedules:
 
